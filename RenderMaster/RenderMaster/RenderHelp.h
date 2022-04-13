@@ -5,6 +5,9 @@
 
 #include <initializer_list>
 #include <map>
+#include <functional>
+#include <string.h>
+
 
 //---------------------------------------------------------------------
 // 数学库：矢量定义
@@ -14,7 +17,7 @@
 template<size_t N, typename T> struct Vector
 {
 	T m[N];
-	
+
 
 	inline Vector()
 	{
@@ -117,7 +120,7 @@ template <typename T> struct Vector<4, T>
 		struct { T r, g, b, a; };
 		T m[4];
 	};
-	
+
 	inline Vector() :x(T()), y(T()), z(T()), w(T()) {}
 	inline Vector(T x, T y, T z, T w) : x(X), y(Y), z(Z), w(W) {}
 	inline Vector(const Vector<4, T> &u) : x(u.x), y(u.y), z(u.z), w(u.w) {}
@@ -151,7 +154,7 @@ typedef Vector<4, int>    Vec4i;
 //---------------------------------------------------------------------
 
 // 着色器上下文，由VS设置，再由渲染器按像素逐点插值后，供PS读取
-struct ShaderContext 
+struct ShaderContext
 {
 	std::map<int, float> varying_float;		// 浮点数 varying 列表
 	std::map<int, Vec2f> varying_vec2f;		// 二维矢量 varying 列表
@@ -160,14 +163,18 @@ struct ShaderContext
 };
 
 // 顶点着色器
+typedef std::function<Vec4f(int index, ShaderContext &output)> VertexShader;
+
+// 像素着色器
+typedef std::function<Vec4f(ShaderContext &input)> PixelShader;
 
 //---------------------------------------------------------------------
 // 位图库：用于加载/保存图片，画点，画线，颜色读取
 //---------------------------------------------------------------------
-class Bitmap 
+class Bitmap
 {
 public:
-	inline Bitmap(int width, int height):_w(width), _h(height)
+	inline Bitmap(int width, int height) :_w(width), _h(height)
 	{
 		_pitch = width * 4;		// 为啥要乘4？
 		_bits = new uint8_t[_pitch * _h];
@@ -177,9 +184,20 @@ public:
 	inline int GetW() const { return _w; }
 	inline int GetH() const { return _h; }
 
+public:
+	inline void Fill(uint32_t color)
+	{
+		for (int j = 0; j < _h; j++)
+		{
+			uint32_t *row = (uint32_t*)(_bits + j * _pitch);
+			for (int i = 0; i < _w; i++, row++)
+				memcpy(row, &color, sizeof(uint32_t));
+		}
+	}
+
 protected:
-	int32_t _w;		
-	int32_t _h;		
+	int32_t _w;
+	int32_t _h;
 	int32_t _pitch;
 	uint8_t *_bits;
 };
@@ -211,7 +229,27 @@ public:
 	// 复位状态
 	inline void Reset()
 	{
-		
+		_vertex_shader = NULL;
+		_pixel_shader = NULL;
+
+		if (_frame_buffer) delete _frame_buffer;
+		_frame_buffer = NULL;
+
+		if (_depth_buffer)
+		{
+			for (int j = 0; j < _fb_height; j++)
+			{
+				if (_depth_buffer[j])
+					delete[] _depth_buffer[j];
+				_depth_buffer[j] = NULL;
+			}
+
+			delete[] _depth_buffer;
+			_depth_buffer = NULL;
+
+			_color_fg = 0xffffffff;
+			_color_bg = 0xff191970;
+		}
 	}
 
 	// 初始化FrameBuffer，渲染前调用
@@ -230,7 +268,10 @@ public:
 	// 清空 FrameBuffer 和 深度缓存
 	inline void Clear()
 	{
-		
+		if (_frame_buffer)
+		{
+
+		}
 	}
 
 protected:
@@ -244,4 +285,7 @@ protected:
 
 	bool _render_frame;		// 是否绘制线框
 	bool _render_pixel;		// 是否填充像素
+
+	VertexShader _vertex_shader;
+	PixelShader _pixel_shader;
 };
