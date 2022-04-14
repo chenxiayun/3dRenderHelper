@@ -107,9 +107,6 @@ template <typename T> struct Vector<3, T> {
 	inline void save(T *ptr) { for (size_t i = 0; i < 3; i++) ptr[i] = m[i]; }
 	inline Vector<2, T> xy() const { return Vector<2, T>(x, y); }
 	inline Vector<3, T> xyz() const { return *this; }
-	inline Vector<4, T> xyz1() const { return Vector<4, T>(x, y, z, 1); }
-	inline Vector<2, T> xy() const { return Vector<2, T>(x, y); }
-	inline Vector<3, T> xyz() const { return *this; }
 };
 
 // 特化四维矢量
@@ -122,9 +119,9 @@ template <typename T> struct Vector<4, T>
 	};
 
 	inline Vector() :x(T()), y(T()), z(T()), w(T()) {}
-	inline Vector(T x, T y, T z, T w) : x(X), y(Y), z(Z), w(W) {}
+	inline Vector(T X, T Y, T Z, T W) : x(X), y(Y), z(Z), w(W) {}
 	inline Vector(const Vector<4, T> &u) : x(u.x), y(u.y), z(u.z), w(u.w) {}
-	inline Vector(const T *prt) : x(ptr[0]), y(ptr[1]), z(ptr[2]), w(ptr[3]) {}
+	inline Vector(const T *ptr) : x(ptr[0]), y(ptr[1]), z(ptr[2]), w(ptr[3]) {}
 	inline const T& operator[] (size_t i) const { assert(i < 4); return m[i]; }
 	inline T& operator[] (size_t i) { assert(i < 4); return m[i]; }
 	inline void load(const T *ptr) { for (size_t i = 0; i < 4; i++) m[i] = ptr[i]; }
