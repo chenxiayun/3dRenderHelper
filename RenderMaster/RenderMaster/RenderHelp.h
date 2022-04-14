@@ -448,8 +448,15 @@ public:
 			// 归一化设备坐标 把坐标从其次裁剪空间转换到NDC坐标空间
 			vertex.pos *= vertex.rhw;
 
-			// 计算屏幕坐标
+			// 计算屏幕坐标	todo:有点奇怪 为啥这样计算
+			vertex.spf.x = (vertex.pos.x + 1.0f) * _fb_width * 0.5f;
+			vertex.spf.y = (1.0f - vertex.pos.y) * _fb_height * 0.5;
+		
+			// 更新外接矩形范围
+			if (k == 0)
+			{
 
+			}
 		}
 	}
 
