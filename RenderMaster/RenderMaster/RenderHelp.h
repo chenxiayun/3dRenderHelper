@@ -132,6 +132,133 @@ template <typename T> struct Vector<4, T>
 };
 
 //---------------------------------------------------------------------
+// 数学库：矢量运算
+//---------------------------------------------------------------------
+
+// = (a == b) ? true : false
+template<size_t N, typename T>
+inline bool operator == (const Vector<N, T>& a, const Vector<N, T>& b)
+{
+	for (size_t i = 0; i < N; i++)if (a[i] != b[i]) return false;
+	return true;
+}
+
+// = (a != b)? true : false
+template <size_t N, typename T>
+inline bool operator != (const Vector<N, T>& a, const Vector<N, T>& b) {
+	return !(a == b);
+}
+
+// = a + b
+template <size_t N, typename T>
+inline Vector<N, T> operator + (const Vector<N, T>& a, const Vector<N, T>& b) 
+{
+	Vector<N, T> c;
+	for (size_t i = 0; i < N; i++) c[i] = a[i] + b[i];
+	return c;
+}
+ 
+// = a - b
+template <size_t N, typename T>
+inline Vector<N, T> operator - (const Vector<N, T>& a, const Vector<N, T>& b) {
+	Vector<N, T> c;
+	for (size_t i = 0; i < N; i++) c[i] = a[i] - b[i];
+	return c;
+}
+
+// = a * b
+template <size_t N, typename T>
+inline Vector<N, T> operator * (const Vector<N, T>& a, const Vector<N, T>& b) 
+{
+	Vector<N, T> c;
+	for (size_t i = 0; i < N; i++) c[i] = a[i] * b[i];
+	return c;
+}
+
+// = a / b，各个元素相除
+template <size_t N, typename T>
+inline Vector<N, T> operator / (const Vector<N, T>& a, const Vector<N, T>& b) {
+	Vector<N, T> c;
+	for (size_t i = 0; i < N; i++) c[i] = a[i] / b[i];
+	return c;
+}
+
+// = a * x
+template <size_t N, typename T>
+inline Vector<N, T> operator * (const Vector<N, T>& a, T x) {
+	Vector<N, T> b;
+	for (size_t i = 0; i < N; i++) b[i] = a[i] * x;
+	return b;
+}
+
+// = x * a
+template <size_t N, typename T>
+inline Vector<N, T> operator * (T x, const Vector<N, T>& a) {
+	Vector<N, T> b;
+	for (size_t i = 0; i < N; i++) b[i] = a[i] * x;
+	return b;
+}
+
+// = a / x
+template <size_t N, typename T>
+inline Vector<N, T> operator / (const Vector<N, T>& a, T x) {
+	Vector<N, T> b;
+	for (size_t i = 0; i < N; i++) b[i] = a[i] / x;
+	return b;
+}
+
+// = x / a
+template <size_t N, typename T>
+inline Vector<N, T> operator / (T x, const Vector<N, T>& a) {
+	Vector<N, T> b;
+	for (size_t i = 0; i < N; i++) b[i] = x / a[i];
+	return b;
+}
+
+// a += b
+template <size_t N, typename T>
+inline Vector<N, T> operator += (Vector<N, T>& a, Vector<N, T>& b)
+{
+	for (size_t i = 0; i < N; i++) a[i] += b[i];
+	return a;
+}
+
+// a -= b
+template <size_t N, typename T>
+inline Vector<N, T>& operator -= (Vector<N, T>& a, const Vector<N, T>& b) {
+	for (size_t i = 0; i < N; i++) a[i] -= b[i];
+	return a;
+}
+
+// a *= b
+template <size_t N, typename T>
+inline Vector<N, T>& operator *= (Vector<N, T>& a, const Vector<N, T>& b) {
+	for (size_t i = 0; i < N; i++) a[i] *= b[i];
+	return a;
+}
+
+// a /= b
+template <size_t N, typename T>
+inline Vector<N, T>& operator /= (Vector<N, T>& a, const Vector<N, T>& b) {
+	for (size_t i = 0; i < N; i++) a[i] /= b[i];
+	return a;
+}
+
+// a *= x
+template <size_t N, typename T>
+inline Vector<N, T>& operator *= (Vector<N, T>& a, T x) {
+	for (size_t i = 0; i < N; i++) a[i] *= x;
+	return a;
+}
+
+// a /= x
+template <size_t N, typename T>
+inline Vector<N, T>& operator /= (Vector<N, T>& a, T x) {
+	for (size_t i = 0; i < N; i++) a[i] /= x;
+	return a;
+}
+
+//---------------------------------------------------------------------
 // 工具函数
 //---------------------------------------------------------------------
 
@@ -182,6 +309,8 @@ public:
 	inline int GetH() const { return _h; }
 
 public:
+	
+	// _bits数组4个分一批，凑成4字节 全部填充color颜色
 	inline void Fill(uint32_t color)
 	{
 		for (int j = 0; j < _h; j++)
@@ -267,9 +396,75 @@ public:
 	{
 		if (_frame_buffer)
 		{
+			_frame_buffer->Fill(_color_bg);	// 颜色填充为0xffffffff
+		}
+
+		if (_depth_buffer)
+		{
+			for (int j = 0; j < _fb_height; j++)
+				for (int i = 0; i < _fb_width; i++)
+					_depth_buffer[j][i] = 0.0f;
+		}
+	}
+
+	// 设置 VS/PS 着色器函数
+	inline void SetVertexShader(VertexShader vs) { _vertex_shader = vs; }
+	inline void SetPixelShader(PixelShader ps) { _pixel_shader = ps; }
+
+public:
+
+	// 绘制一个三角形，必须先设定好着色器函数
+	inline bool DrawPrimitive()
+	{
+		if (_frame_buffer == NULL || _vertex_shader == NULL)
+			return false;
+
+		// 顶点初始化
+		for (int k = 0; k < 3; k++)
+		{
+			Vertex& vertex = _vertex[k];
+			
+			// 清空上下文的 varying 列表
+			vertex.context.varying_float.clear();
+			vertex.context.varying_vec2f.clear();
+			vertex.context.varying_vec3f.clear();
+			vertex.context.varying_vec4f.clear();
+
+			// 运行顶点着色程序
+			// 为vertex的pos赋值，varying_vec4f存顶点色
+			vertex.pos = _vertex_shader(k, vertex.context);	
+		
+			// w代表什么？
+			// 这里先遵循原作者的简单裁剪（已经转为其次裁剪空间了？），后期自己实现其次空间内的裁剪
+			float w = vertex.pos.w;
+			if (w == 0.0f) return false;
+			if (vertex.pos.z < 0.0f || vertex.pos.z > w) return false;
+			if (vertex.pos.x < -w || vertex.pos.x > w) return false;
+			if (vertex.pos.y < -w || vertex.pos.x > w) return false;
+
+			// 计算 w 的倒数
+			vertex.rhw = 1.0 / w;
+
+			// 归一化设备坐标 把坐标从其次裁剪空间转换到NDC坐标空间
+			vertex.pos *= vertex.rhw;
+
+			// 计算屏幕坐标
 
 		}
 	}
+
+protected:
+
+	// 顶点结构体
+	struct Vertex 
+	{
+		ShaderContext context;	// 上下文
+		
+		float rhw;				// w的倒数
+		Vec4f pos;				// 坐标
+		Vec2f spf;				// 浮点数屏幕坐标
+		Vec2i spi;				// 整数屏幕坐标
+	};
 
 protected:
 	Bitmap *_frame_buffer;	// 像素缓存
@@ -279,6 +474,13 @@ protected:
 	int _fb_height;			// frame buffer 高度
 	uint32_t _color_fg;		// 前景色：画线用
 	uint32_t _color_bg;		// 背景色：Clear用
+
+	Vertex _vertex[3];		// 三角形的三个顶点
+
+	int _min_x;				// 三角形外接
+	int _min_y;
+	int _max_x;
+	int _max_y;
 
 	bool _render_frame;		// 是否绘制线框
 	bool _render_pixel;		// 是否填充像素
