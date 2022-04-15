@@ -584,6 +584,9 @@ public:
 	inline void SetVertexShader(VertexShader vs) { _vertex_shader = vs; }
 	inline void SetPixelShader(PixelShader ps) { _pixel_shader = ps; }
 
+	// 保存 FrameBuffer 到 BMP 文件
+	inline void SaveFile(const char* filename) { if (_frame_buffer) _frame_buffer->SaveFile(filename); }
+
 	// 设置背景/前景色
 	inline void SetBGColor(uint32_t color) { _color_bg = color; }
 	inline void SetFGColor(uint32_t color) { _color_fg = color; }
@@ -645,7 +648,11 @@ public:
 
 			// 计算屏幕坐标	todo:有点奇怪 为啥这样计算 这部分去看一下那个大佬的视频
 			vertex.spf.x = (vertex.pos.x + 1.0f) * _fb_width * 0.5f;
-			vertex.spf.y = (1.0f - vertex.pos.y) * _fb_height * 0.5;
+			vertex.spf.y = (1.0f - vertex.pos.y) * _fb_height * 0.5f;
+
+			// 整数屏幕坐标：加 0.5 的偏移取屏幕像素方格中心对齐
+			vertex.spi.x = (int)(vertex.spf.x + 0.5f);
+			vertex.spi.y = (int)(vertex.spf.y + 0.5f);
 		
 			// 更新外接矩形范围
 			if (k == 0)
