@@ -261,6 +261,23 @@ inline Vector<N, T>& operator /= (Vector<N, T>& a, T x) {
 //---------------------------------------------------------------------
 // 工具函数
 //---------------------------------------------------------------------
+template<typename T> inline T Abs(T x) { return (x < 0) ? (-x) : x; }
+template<typename T> inline T Max(T x, T y) { return (x < y) ? y : x; }
+template<typename T> inline T Min(T x, T y) { return (x > y) ? x : y; }
+
+template<typename T> inline bool NearEqual(T x, T y, T error) {
+	return (Abs(x - y) < error);
+}
+
+// 取xmin到xmax中的数
+template<typename T> inline T Between(T xmin, T xmax, T x) {
+	return Min(Max(xmin, x), xmax);
+}
+
+// 截取[0, 1]的范围
+template<typename T> inline T Saturate(T x) {
+	return Between<T>(0, 1, x);
+}
 
 // 类型别名
 typedef Vector<2, float>  Vec2f;
@@ -272,6 +289,20 @@ typedef Vector<3, int>    Vec3i;
 typedef Vector<4, float>  Vec4f;
 typedef Vector<4, double> Vec4d;
 typedef Vector<4, int>    Vec4i;
+
+//---------------------------------------------------------------------
+// 3D 数学运算
+//---------------------------------------------------------------------
+
+// 矢量转整数颜色
+inline static uint32_t vector_to_color(const Vec4f& color)
+{
+	uint32_t r = (uint32_t)Between(0, 255, (int)(color.r * 255.0f));
+	uint32_t g = (uint32_t)Between(0, 255, (int)(color.g * 255.0f));
+	uint32_t b = (uint32_t)Between(0, 255, (int)(color.b * 255.0f));
+	uint32_t a = (uint32_t)Between(0, 255, (int)(color.a * 255.0f));
+	return (r << 16) | (g << 8) | b | (a << 24);
+}
 
 //---------------------------------------------------------------------
 // 着色器定义
@@ -319,6 +350,114 @@ public:
 			for (int i = 0; i < _w; i++, row++)
 				memcpy(row, &color, sizeof(uint32_t));
 		}
+	}
+
+	// 为指定像素位赋值颜色
+	inline void SetPixel(int x, int y, uint32_t color)
+	{
+		if (x >= 0 && x < _w&&y >= 0 && y < _h) {
+			memcpy(_bits + y * _pitch + x * 4, &color, sizeof(uint32_t));	
+		}
+	}
+
+	inline uint32_t GetPixel(int x, int y) const 
+	{
+		uint32_t color = 0;
+		if (x >= 0 && x < _w && y >= 0 && y < _h)
+		{
+			memcpy(&color, _bits + y * _pitch + x * 4, sizeof(uint32_t));
+		}
+		return color;
+	}
+
+	inline void DrawLine(int x1, int y1, int x2, int y2, uint32_t color)
+	{
+		int x, y;
+		if (x1 == x2 && y1 == y2) 
+		{
+			SetPixel(x1, y1, color);
+		}
+		else if (x1 == x2)
+		{
+			int inc = (y1 <= y2) ? 1 : -1;
+			for (int y = y1; y != y2; y += inc)SetPixel(x1, y, color);
+			SetPixel(x2, y2, color);
+		}
+		else if (y1 == y2) 
+		{
+			int inc = (x1 <= x2) ? 1 : -1;
+			for (x = x1; x != x2; x += inc) SetPixel(x, y1, color);
+			SetPixel(x2, y2, color);
+		}
+		else
+		{
+			// ----- 上右上画折线 // ---- 
+
+			int dx = Abs(x1 - x2);
+			int dy = Abs(y1 - y2);
+			int rem = 0;
+
+			if (dx >= dy)
+			{
+				if (x2 < x1)
+					x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+
+				for (x = x1, y = y1; x <= x2; x++)
+				{
+					SetPixel(x, y, color);
+					rem += dy;
+					if (rem >= dx)
+					{
+						rem -= dx;
+						y += (y2 >= y1) ? 1 : -1;
+						SetPixel(x, y, color);
+					}
+				}
+			}
+			else
+			{
+				if (y2 < y1)
+					x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+
+				for (x = x1, y = y1; y <= y2; y++)
+				{
+					SetPixel(x, y, color);
+					rem += dx;
+
+					if (rem >= dy)
+					{
+						rem -= dy;
+						x += (x2 >= x1) ? 1 : -1;
+						SetPixel(x, y, color);
+					}
+				}
+			}
+		}
+	}
+
+	struct BITMAPINFOHEADER 
+	{
+		uint32_t	biSize;
+		uint32_t	biWidth;
+		int32_t		biHeight;
+		uint16_t	biPlanes;
+		uint16_t	biBitCount;
+		uint32_t	biCompression;
+		uint32_t	biSizeImage;
+		uint32_t	biXPelsPerMeter;
+		uint32_t	biYPelsPerMeter;
+		uint32_t	biClrUsed;
+		uint32_t	biClrImportant;
+	};
+
+	// 保存 BMP 文件
+	inline bool SaveFile(const char *filename, bool withAlpha = false) const 
+	{
+		FILE *fp = fopen(filename, "wb");
+		if (fp == NULL) return false;
+
+		BITMAPINFOHEADER info;
+
 	}
 
 protected:
@@ -411,6 +550,28 @@ public:
 	inline void SetVertexShader(VertexShader vs) { _vertex_shader = vs; }
 	inline void SetPixelShader(PixelShader ps) { _pixel_shader = ps; }
 
+	// 设置背景/前景色
+	inline void SetBGColor(uint32_t color) { _color_bg = color; }
+	inline void SetFGColor(uint32_t color) { _color_fg = color; }
+
+	// FrameBuffer画点
+	inline void SetPixel(int x, int y, uint32_t cc) { if (_frame_buffer) _frame_buffer->SetPixel(x, y, cc); }
+	inline void SetPixel(int x, int y, const Vec4f& cc) { SetPixel(x, y, vector_to_color(cc)); }
+
+	// FrameBuffer 里画线
+	inline void DrawLine(int x1, int y1, int x2, int y2)
+	{
+		if (_frame_buffer)
+			_frame_buffer->DrawLine(x1, y1, x2, y2, _color_fg);
+	}
+
+	// 设置渲染状态，是否显示线框图，是否填充三角形
+	inline void SetRenderState(bool frame, bool pixel) 
+	{
+		_render_frame = frame;
+		_render_pixel = pixel;
+	}
+
 public:
 
 	// 绘制一个三角形，必须先设定好着色器函数
@@ -448,16 +609,34 @@ public:
 			// 归一化设备坐标 把坐标从其次裁剪空间转换到NDC坐标空间
 			vertex.pos *= vertex.rhw;
 
-			// 计算屏幕坐标	todo:有点奇怪 为啥这样计算
+			// 计算屏幕坐标	todo:有点奇怪 为啥这样计算 这部分去看一下那个大佬的视频
 			vertex.spf.x = (vertex.pos.x + 1.0f) * _fb_width * 0.5f;
 			vertex.spf.y = (1.0f - vertex.pos.y) * _fb_height * 0.5;
 		
 			// 更新外接矩形范围
 			if (k == 0)
 			{
-
+				_min_x = _max_x = Between(0, _fb_width - 1, vertex.spi.x);
+				_min_y = _max_y = Between(0, _fb_height - 1, vertex.spi.y);
+			}
+			else
+			{
+				_min_x = Between(0, _fb_width - 1, Min(_min_x, vertex.spi.x));
+				_max_x = Between(0, _fb_width - 1, Max(_max_x, vertex.spi.x));
+				_min_y = Between(0, _fb_height - 1, Min(_min_y, vertex.spi.y));
+				_max_y = Between(0, _fb_height - 1, Max(_max_y, vertex.spi.y));
 			}
 		}
+
+		// 绘制线框
+		if (_render_frame)
+		{
+			DrawLine(_vertex[0].spi.x, _vertex[0].spi.y, _vertex[1].spi.x, _vertex[1].spi.y);
+			DrawLine(_vertex[0].spi.x, _vertex[0].spi.y, _vertex[2].spi.x, _vertex[2].spi.y);
+			DrawLine(_vertex[2].spi.x, _vertex[2].spi.y, _vertex[1].spi.x, _vertex[1].spi.y);
+		}
+
+		return false;
 	}
 
 protected:
