@@ -331,19 +331,21 @@ inline Vector<4, T> vector_cross(const Vector<4, T>& a, const Vector<4, T>& b)
 //---------------------------------------------------------------------
 template<typename T> inline T Abs(T x) { return (x < 0) ? (-x) : x; }
 template<typename T> inline T Max(T x, T y) { return (x < y) ? y : x; }
-template<typename T> inline T Min(T x, T y) { return (x > y) ? x : y; }
+template<typename T> inline T Min(T x, T y) { return (x > y) ? y : x; }
 
-template<typename T> inline bool NearEqual(T x, T y, T error) {
+template<typename T> inline bool NearEqual(T x, T y, T error) 
+{
 	return (Abs(x - y) < error);
 }
 
-// 取xmin到xmax中的数
-template<typename T> inline T Between(T xmin, T xmax, T x) {
+template<typename T> inline T Between(T xmin, T xmax, T x) 
+{
 	return Min(Max(xmin, x), xmax);
 }
 
-// 截取[0, 1]的范围
-template<typename T> inline T Saturate(T x) {
+// 截取 [0, 1] 的范围
+template<typename T> inline T Saturate(T x) 
+{
 	return Between<T>(0, 1, x);
 }
 
