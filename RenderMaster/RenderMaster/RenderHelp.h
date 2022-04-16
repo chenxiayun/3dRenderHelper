@@ -519,7 +519,7 @@ public:
 	{
 		_frame_buffer = NULL;
 		_depth_buffer = NULL;
-		_render_frame = false;
+		_render_frame = true;
 		_render_pixel = true;
 		Init(width, height);
 	}
@@ -545,10 +545,9 @@ public:
 
 			delete[] _depth_buffer;
 			_depth_buffer = NULL;
-
-			_color_fg = 0xffffffff;
-			_color_bg = 0xff191970;
 		}
+		_color_fg = 0xffffffff;
+		_color_bg = 0xff191970;
 	}
 
 	// 初始化FrameBuffer，渲染前调用
