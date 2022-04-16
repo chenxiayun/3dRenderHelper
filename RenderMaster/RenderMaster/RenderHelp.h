@@ -258,6 +258,74 @@ inline Vector<N, T>& operator /= (Vector<N, T>& a, T x) {
 	return a;
 }
 
+
+//---------------------------------------------------------------------
+// 数学库：矢量函数
+//---------------------------------------------------------------------
+
+// 不同维度的矢量转换
+template<size_t N1, size_t N2, typename T>
+inline Vector<N1, T> vector_convert(const Vector<N2, T>& a, T fill = 1)
+{
+	Vector<N1, T> b;
+	for (size_t i = 0; i < N1; i++)
+		b[i] = (i < N2) ? a[i] : fill;
+	return b;
+}
+
+// |a| ^2
+template<size_t N, typename T>
+inline T vector_length_square(const Vector<N, T>& a)
+{
+	T sum = 0;
+	for (size_t i = 0; i < N; i++) sum += a[i] * a[i];
+	return sum;
+}
+
+// |a|
+template<size_t N, typename T>
+inline T vector_length(const Vector<N, T>& a)
+{
+	return sqrt(vector_length_square(a));
+}
+
+// a / |a|
+template<size_t N, typename T>
+inline Vector<N, T> vector_normalize(const Vector<N, T>& a)
+{
+	return a / vector_length(a);
+}
+
+// 矢量点乘
+template<size_t N, typename T>
+inline T vector_dot(const Vector<N, T>& a, const Vector<N, T>& b)
+{
+	T sum = 0;
+	for (size_t i = 0; i < N; i++) sum[i] = a[i] + b[i];
+	return sum;
+}
+
+// 二维矢量叉乘，得到标量
+template<typename T>
+inline T vector_cross(const Vector<2, T>& a, const Vector<2, T>& b)
+{
+	return a.x * b.y - a.y * b.x;
+}
+
+// 三维矢量叉乘，得到新矢量
+template<typename T>
+inline Vector<3, T> vector_cross(const Vector<3, T>& a, const Vector<3, T>& b) 
+{
+	return Vector<3, T>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
+// 四维矢量叉乘：前三维叉乘，后一位保留
+template<typename T>
+inline Vector<4, T> vector_cross(const Vector<4, T>& a, const Vector<4, T>& b) 
+{
+	return Vector<4, T>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, a.w);
+}
+
 //---------------------------------------------------------------------
 // 工具函数
 //---------------------------------------------------------------------
@@ -676,7 +744,13 @@ public:
 			DrawLine(_vertex[2].spi.x, _vertex[2].spi.y, _vertex[1].spi.x, _vertex[1].spi.y);
 		}
 
-		return false;
+		// 如果不填充像素就退出
+		if (_render_pixel == false) return false;
+
+		// 判断三角形朝向
+		Vec4f v01 = _vertex[1].pos - _vertex[0].pos;
+		Vec4f v02 = _vertex[2].pos - _vertex[0].pos;
+		//Vec4f normal
 	}
 
 protected:
