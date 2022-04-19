@@ -727,7 +727,7 @@ public:
 			// 归一化设备坐标 把坐标从其次裁剪空间转换到NDC坐标空间
 			vertex.pos *= vertex.rhw;
 
-			// 计算屏幕坐标	todo:有点奇怪 为啥这样计算 这部分去看一下那个大佬的视频
+			// 计算屏幕坐标	[-1, 1] -> [0, 2] -> [0, _fb_width]
 			vertex.spf.x = (vertex.pos.x + 1.0f) * _fb_width * 0.5f;
 			vertex.spf.y = (1.0f - vertex.pos.y) * _fb_height * 0.5f;
 
