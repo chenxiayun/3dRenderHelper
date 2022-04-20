@@ -578,6 +578,11 @@ typedef Vector<4, float>  Vec4f;
 typedef Vector<4, double> Vec4d;
 typedef Vector<4, int>    Vec4i;
 
+typedef Matrix<4, 4, float> Mat4x4f;
+typedef Matrix<3, 3, float> Mat3x3f;
+typedef Matrix<4, 3, float> Mat4x3f;
+typedef Matrix<3, 4, float> Mat3x4f;
+
 //---------------------------------------------------------------------
 // 3D 数学运算
 //---------------------------------------------------------------------
@@ -610,7 +615,57 @@ inline static Vec4f vector_from_color(uint32_t rgba)
 }
 
 // matrix set to zero
-//inline static Mat4
+inline static Mat4x4f matrix_set_zero()
+{
+	Mat4x4f m;
+	m.m[0][0] = m.m[0][1] = m.m[0][2] = m.m[0][3] = 0.0f;
+	m.m[1][0] = m.m[1][1] = m.m[1][2] = m.m[1][3] = 0.0f;
+	m.m[2][0] = m.m[2][1] = m.m[2][2] = m.m[2][3] = 0.0f;
+	m.m[3][0] = m.m[3][1] = m.m[3][2] = m.m[3][3] = 0.0f;
+	return m;
+}
+
+// set to identity
+inline static Mat4x4f matrix_set_identity()
+{
+	Mat4x4f m;
+	m.m[0][0] = m.m[1][1] = m.m[2][2] = m.m[3][3] = 1.0f;
+	m.m[0][1] = m.m[0][2] = m.m[0][3] = 0.0f;
+	m.m[1][0] = m.m[1][2] = m.m[1][3] = 0.0f;
+	m.m[2][0] = m.m[2][1] = m.m[2][3] = 0.0f;
+	m.m[3][0] = m.m[3][1] = m.m[3][2] = 0.0f;
+	return m;
+}
+
+// 平移变换
+inline static Mat4x4f matrix_set_translate(float x, float y, float z)
+{
+	Mat4x4f m = matrix_set_identity();
+	m.m[3][0] = x;
+	m.m[3][1] = y;
+	m.m[3][2] = z;
+	return m;
+}
+
+// 缩放变换
+inline static Mat4x4f matrix_set_scale(float x, float y, float z)
+{
+	Mat4x4f m = matrix_set_identity();
+	m.m[0][0] = x;
+	m.m[1][1] = y;
+	m.m[2][2] = z;
+	return m;
+}
+
+// 旋转编号，围绕（x, y, z）矢量旋转 theta 角度
+inline static Mat4x4f matrix_set_rotate(float x, float y, float z, float theta)
+{
+	float qsin = (float)sin(theta * 0.5f);
+	float qcos = (float)cos(theta * 0.5f);
+	float w = qcos;
+	Vec3f vec = vector_normalize(Vec3f(x, y, z));
+
+}
 
 //---------------------------------------------------------------------
 // 着色器定义
