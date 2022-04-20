@@ -87,6 +87,7 @@ template <typename T> struct Vector<2, T> {
 	inline void load(const T *ptr) { for (size_t i = 0; i < 2; i++) m[i] = ptr[i]; }
 	inline void save(T *ptr) { for (size_t i = 0; i < 2; i++) ptr[i] = m[i]; }
 	inline Vector<2, T> xy() const { return *this; }
+	inline Vector<4, T> xy11() const { return Vector<4, T>(x, y, 1, 1); }
 };
 
 
@@ -107,6 +108,7 @@ template <typename T> struct Vector<3, T> {
 	inline void save(T *ptr) { for (size_t i = 0; i < 3; i++) ptr[i] = m[i]; }
 	inline Vector<2, T> xy() const { return Vector<2, T>(x, y); }
 	inline Vector<3, T> xyz() const { return *this; }
+	inline Vector<4, T> xyz1() const { return Vector<4, T>(x, y, z, 1); }
 };
 
 // 特化四维矢量
@@ -301,7 +303,7 @@ template<size_t N, typename T>
 inline T vector_dot(const Vector<N, T>& a, const Vector<N, T>& b)
 {
 	T sum = 0;
-	for (size_t i = 0; i < N; i++) sum[i] = a[i] + b[i];
+	for (size_t i = 0; i < N; i++) sum[i] = a[i] * b[i];
 	return sum;
 }
 
@@ -324,6 +326,222 @@ template<typename T>
 inline Vector<4, T> vector_cross(const Vector<4, T>& a, const Vector<4, T>& b) 
 {
 	return Vector<4, T>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, a.w);
+}
+
+//---------------------------------------------------------------------
+// 数学库：矩阵
+//---------------------------------------------------------------------
+template<size_t ROW, size_t COL, typename T> struct Matrix 
+{
+	T m[ROW][COL];
+
+	inline Matrix() {}
+
+	inline Matrix(const Matrix<ROW, COL, T>& src)
+	{
+		for (size_t r = 0; r < ROW; r++)
+			for (size c = 0; c < COL:; c++)
+				m[r][c] = src.m[r][c];
+	}
+
+	inline Matrix(const std::initializer_list<Vector<COL, T>> &u)
+	{
+		auto it = u.begin();
+	}
+
+	inline const T* operator [] (size_t row) const
+	{
+		assert(row < ROW);
+		return m[row];
+	}
+
+	inline const T* operator [] (size_t row)
+	{
+		assert(row < ROW);
+		return m[row];
+	}
+
+	// 取一行
+	inline Vector<COL, T> Row(size_t row) const 
+	{
+		assert(row < ROW);
+		Vector<COL, T> a;
+		for (size_t i = 0; i < COL; i++)
+			a[i] = m[row][i];
+		return a;
+	}
+
+	// 取一列
+	inline Vector<ROW, T> Col(size_t col) const 
+	{
+		assert(col < COL);
+		Vector<ROW, T> a;
+		for (size_t i = 0; i < ROW; i++)
+			a[i] = m[i][col];
+		return a;
+	}
+
+	// 设置一行
+	inline void SetRow(size_t row, const Vector<COL, T>& a)
+	{
+		assert(row < ROW);
+		for (size_t i = 0; i < COL; i++)
+			m[row][i] = a[i];
+	}
+
+	// 设置一列
+	inline void SetCol(size_t col, const Vector<ROW, T>& a) 
+	{
+		assert(col < COL);
+		for (size_t i = 0; i < ROW; i++) 
+			m[i][col] = a[i];
+	}
+
+	// 取得删除某行和某列的子矩阵：子式
+	inline Matrix<ROW - 1, COL - 1, T> GetMinor(size_t row, size_t col) const
+	{
+		Matrix<ROW - 1, COL - 1, T> ret;
+		for (size_t r = 0; r < ROW - 1; r++)
+			for (size_t c = 0; c < COL - 1; c++)
+				ret.m[r][c] = m[r < row ? r : r + 1][c < col ? c : c + 1];
+		retirm ret;
+	}
+
+	// 取得转置矩阵
+	inline Matrix<COL, ROW, T> Transpose() const
+	{
+		Matrix<COL, ROW, T> ret;
+		for (size_t r = 0; r < ROW; r++)
+			for (size_t c = 0; c < COL; c++)
+				ret.m[c][r] = m[r][c];
+		return ret;
+	}
+
+	// 取得0矩阵
+	inline static Matrix<ROW, COL, T> GetZero()
+	{
+		Matrix<ROW, COL, T> ret;
+		for (size_t r = 0; r < ROW; r++)
+			for (size_t c = 0; c < COL; c++)
+				ret.m[r][c] = 0;
+		return ret;
+	}
+
+	// 取得单位矩阵
+	inline static Matrix<ROW, COL, T> GetIdentity()
+	{
+		Matrix<ROW, COL, T> ret;
+		for (size_t r = 0; r < ROW; r++)
+			for (size_t c = 0; c < COL; c++)
+				ret.m[r][c] = (r == c) ? 1 : 0;
+		return ret;
+	}
+};
+
+//---------------------------------------------------------------------
+// 数学库：矩阵运算
+//---------------------------------------------------------------------
+template<size_t ROW, size_t COL, typename T>
+inline bool operator == (const Matrix<ROW, COL, T>& a, const Matrix<ROW, COL, T>& b)
+{
+	for (size_t r = 0; r < ROW; r++) 
+		for (size_t c = 0; c < COL; c++) 
+			if (a.m[r][c] != b.m[r][c]) return false;
+	
+	return true;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline bool operator != (const Matrix<ROW, COL, T>& a, const Matrix<ROW, COL, T>& b) 
+{
+	return !(a == b);
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Matrix<ROW, COL, T> operator + (const Matrix<ROW, COL, T>& a, const Matrix<ROW, COL, T>& b) 
+{
+	Matrix<ROW, COL, T> out;
+	for (size_t j = 0; j < ROW; j++)
+		for (size_t i = 0; i < COL; i++)
+			out.m[j][i] = a.m[j][i] + b.m[j][i];
+	return out;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Matrix<ROW, COL, T> operator - (const Matrix<ROW, COL, T>& a, const Matrix<ROW, COL, T>& b) 
+{
+	Matrix<ROW, COL, T> out;
+	for (size_t j = 0; j < ROW; j++) {
+		for (size_t i = 0; i < COL; i++)
+			out.m[j][i] = a.m[j][i] - b.m[j][i];
+	}
+	return out;
+}
+
+template<size_t ROW, size_t COL, size_t NEWCOL, typename T>
+inline Matrix<ROW, NEWCOL, T> operator * (const Matrix<ROW, COL, T>& a, const Matrix<COL, NEWCOL, T>& b)
+{
+	Matrix<ROW, NEWCOL, T> out;
+	for (size_t j = 0; j < ROW; j++)
+		for (size_t i = 0; i < NEWCOL; i++)
+			out.m[j][i] = vector_dot(a.Row(j), b.Col(i));
+	return out;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Matrix<ROW, COL, T> operator * (const Matrix<ROW, COL, T>& a, T x)
+{
+	Matrix<ROW, COL, T> out;
+	for (size_t j = 0; j < ROW; j++)
+		for (size_t i = 0; i < COL; i++)
+			out.m[j][i] = a.m[j][i] * x;
+	return out;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Matrix<ROW, COL, T> operator / (const Matrix<ROW, COL, T>& a, T x) 
+{
+	Matrix<ROW, COL, T> out;
+	for (size_t j = 0; j < ROW; j++) 
+		for (size_t i = 0; i < COL; i++) 
+			out.m[j][i] = a.m[j][i] / x;
+		
+	return out;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Matrix<ROW, COL, T> operator * (T x, const Matrix<ROW, COL, T>& a)
+{
+	return (a * x);
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Matrix<ROW, COL, T> operator / (T x, const Matrix<ROW, COL, T>& a) 
+{
+	Matrix<ROW, COL, T> out;
+	for (size_t j = 0; j < ROW; j++) 
+		for (size_t i = 0; i < COL; i++) 
+			out.m[j][i] = x / a.m[j][i];
+		
+	return out;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Vector<COL, T> operator * (const Vector<ROW, T>& a, const Matrix<ROW, COL, T>& m)
+{
+	Vector<COL, T> b;
+	for (size_t i = 0; i < COL; i++)
+		b[i] = vector_dot(a, m.Col(i));
+	return b;
+}
+
+template<size_t ROW, size_t COL, typename T>
+inline Vector<ROW, T> operator * (const Matrix<ROW, COL, T>& m, const Vector<COL, T>& a)
+{
+	Vector<ROW, T> b;
+	for (size_t i = 0; i < ROW; i++)
+		b[i] = vector_dot(a, m.Row(i));
+	return b;
 }
 
 //---------------------------------------------------------------------
@@ -374,6 +592,26 @@ inline static uint32_t vector_to_color(const Vec4f& color)
 	return (r << 16) | (g << 8) | b | (a << 24);
 }
 
+// 矢量转换整数颜色
+inline static uint32_t vector_to_color(const Vec3f& color) 
+{
+	return vector_to_color(color.xyz1());
+}
+
+// 整数颜色到矢量 按照argb形式储存？这特么为啥
+inline static Vec4f vector_from_color(uint32_t rgba)
+{
+	Vec4f out;
+	out.r = ((rgba >> 16) & 0xff) / 255.0f;
+	out.g = ((rgba >> 8) & 0xff) / 255.0f;
+	out.b = ((rgba >> 0) & 0xff) / 255.0f;
+	out.a = ((rgba >> 24) & 0xff) / 255.0f;
+	return out;
+}
+
+// matrix set to zero
+//inline static Mat4
+
 //---------------------------------------------------------------------
 // 着色器定义
 //---------------------------------------------------------------------
@@ -401,7 +639,7 @@ class Bitmap
 public:
 	inline Bitmap(int width, int height) :_w(width), _h(height)
 	{
-		_pitch = width * 4;		// 为啥要乘4？
+		_pitch = width * 4;		// _bits是1字节 颜色储存需要4字节
 		_bits = new uint8_t[_pitch * _h];
 	}
 
