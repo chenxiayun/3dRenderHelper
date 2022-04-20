@@ -4,7 +4,7 @@
 #include <iostream>
 #include "RenderHelp.h"
 
-int main()
+inline void sample_01_triangle()
 {
 	// 初始化渲染器和帧缓存大小
 	RenderHelp rh(800, 600);
@@ -14,8 +14,8 @@ int main()
 	// 顶点数据，由 VS 读取，如有多个三角形，可每次更新 vs_input 再绘制
 	struct { Vec4f pos; Vec4f color; } vs_input[3] = {
 		{ {  0.0,  0.7, 0.90, 1}, {1, 0, 0, 1} },
-		{ { -0.6, -0.2, 0.01, 1}, {1, 0, 0, 1} },
-		{ { +0.6, -0.2, 0.01, 1}, {1, 0, 0, 1} },
+		{ { -0.6, -0.2, 0.01, 1}, {0, 1, 0, 1} },
+		{ { +0.6, -0.2, 0.01, 1}, {0, 0, 1, 1} },
 	};
 
 	// 顶点着色器，初始化 varying 并返回坐标，
@@ -38,6 +38,22 @@ int main()
 #if defined(_WIN32) || defined(WIN32)
 	system("mspaint.exe output.bmp");
 #endif
+}
+
+int main()
+{
+	RenderHelp rh(800, 600);
+
+	//// 定义一个纹理，并生成网格图案
+	//Bitmap texture(256, 256);
+	//for(int y = 0;y < 256;y++)
+	//	for (int x = 0; x < 256; x++)
+	//	{
+	//		int ()
+	//	}
+
+	auto color = vector_from_color(0xFFFFFF00);
+	printf("%f,%f,%f,%f", color.r, color.g, color.b, color.a);
 
 	return 0;
 }
