@@ -303,7 +303,7 @@ template<size_t N, typename T>
 inline T vector_dot(const Vector<N, T>& a, const Vector<N, T>& b)
 {
 	T sum = 0;
-	for (size_t i = 0; i < N; i++) sum[i] = a[i] * b[i];
+	for (size_t i = 0; i < N; i++) sum += a[i] * b[i];
 	return sum;
 }
 
@@ -340,7 +340,7 @@ template<size_t ROW, size_t COL, typename T> struct Matrix
 	inline Matrix(const Matrix<ROW, COL, T>& src)
 	{
 		for (size_t r = 0; r < ROW; r++)
-			for (size c = 0; c < COL:; c++)
+			for (size_t c = 0; c < COL; c++)
 				m[r][c] = src.m[r][c];
 	}
 
@@ -404,7 +404,7 @@ template<size_t ROW, size_t COL, typename T> struct Matrix
 		for (size_t r = 0; r < ROW - 1; r++)
 			for (size_t c = 0; c < COL - 1; c++)
 				ret.m[r][c] = m[r < row ? r : r + 1][c < col ? c : c + 1];
-		retirm ret;
+		return ret;
 	}
 
 	// 取得转置矩阵
@@ -657,14 +657,58 @@ inline static Mat4x4f matrix_set_scale(float x, float y, float z)
 	return m;
 }
 
-// 旋转编号，围绕（x, y, z）矢量旋转 theta 角度
+// 旋转编号，围绕（x, y, z）矢量旋转 theta 角度 
 inline static Mat4x4f matrix_set_rotate(float x, float y, float z, float theta)
 {
 	float qsin = (float)sin(theta * 0.5f);
 	float qcos = (float)cos(theta * 0.5f);
 	float w = qcos;
 	Vec3f vec = vector_normalize(Vec3f(x, y, z));
+	x = vec.x * qsin;
+	y = vec.y * qsin;
+	z = vec.z * qsin;
+	Mat4x4f m;
+	m.m[0][0] = 1 - 2 * y * y - 2 * z * z;
+	m.m[1][0] = 2 * x * y - 2 * w * z;
+	m.m[2][0] = 2 * x * z + 2 * w * y;
+	m.m[0][1] = 2 * x * y + 2 * w * z;
+	m.m[1][1] = 1 - 2 * x * x - 2 * z * z;
+	m.m[2][1] = 2 * y * z - 2 * w * x;
+	m.m[0][2] = 2 * x * z - 2 * w * y;
+	m.m[1][2] = 2 * y * z + 2 * w * x;
+	m.m[2][2] = 1 - 2 * x * x - 2 * y * y;
+	m.m[0][3] = m.m[1][3] = m.m[2][3] = 0.0f;
+	m.m[3][0] = m.m[3][1] = m.m[3][2] = 0.0f;
+	m.m[3][3] = 1.0f;
+	return m;
+}
 
+// 摄影机变换矩阵：eye/视点位置，at/看向哪里，up/指向上方的矢量
+inline static Mat4x4f matrix_set_lookat(const Vec3f& eye, const Vec3f& at, const Vec3f& up)
+{
+	Vec3f zaxis = vector_normalize(at - eye);
+	Vec3f xaxis = vector_normalize(vector_cross(up, zaxis));
+	Vec3f yaxis = vector_cross(zaxis, xaxis);
+
+	Mat4x4f m;	// 为什么最后要点乘啊，看不明白 -eye.x不可以吗？
+	m.SetCol(0, Vec4f(xaxis.x, xaxis.y, xaxis.z, -vector_dot(eye, xaxis)));
+	m.SetCol(1, Vec4f(yaxis.x, yaxis.y, yaxis.z, -vector_dot(eye, yaxis)));
+	m.SetCol(2, Vec4f(zaxis.x, zaxis.y, zaxis.z, -vector_dot(eye, zaxis)));
+	m.SetCol(3, Vec4f(0.0f, 0.0f, 0.0f, 1.0f));
+	return m;
+}
+
+// D3DXMatrixPerspectiveFovLH
+inline static Mat4x4f matrix_set_perspective(float fovy, float aspect, float zn, float zf)
+{
+	float fax = 1.0f / (float)tan(fovy * 0.5f);
+	Mat4x4f m = matrix_set_zero();
+	m.m[0][0] = (float)(fax / aspect);
+	m.m[1][1] = (float)(fax);
+	m.m[2][2] = zf / (zf - zn);
+	m.m[3][2] = -zn * zf / (zf - zn);
+	m.m[2][3] = 1;
+	return m;
 }
 
 //---------------------------------------------------------------------
@@ -857,10 +901,64 @@ public:
 		return true;
 	}
 
+	// 双线性插值
+	inline uint32_t SampleBilinear(float x, float y) const {
+		int32_t fx = (int32_t)(x * 0x10000);
+		int32_t fy = (int32_t)(y * 0x10000);
+		int32_t x1 = Between(0, _w - 1, fx >> 16);
+		int32_t y1 = Between(0, _h - 1, fy >> 16);
+		int32_t x2 = Between(0, _w - 1, x1 + 1);
+		int32_t y2 = Between(0, _h - 1, y1 + 1);
+		int32_t dx = (fx >> 8) & 0xff;
+		int32_t dy = (fy >> 8) & 0xff;
+		if (_w <= 0 || _h <= 0) return 0;
+		uint32_t c00 = GetPixel(x1, y1);
+		uint32_t c01 = GetPixel(x2, y1);
+		uint32_t c10 = GetPixel(x1, y2);
+		uint32_t c11 = GetPixel(x2, y2);
+		return BilinearInterp(c00, c01, c10, c11, dx, dy);
+	}
+
+	// 纹理采样
+	inline Vec4f Sample2D(float u, float v) const 
+	{
+		uint32_t rgba = SampleBilinear(u * _w + 0.5f, v * _h + 0.5f);
+		return vector_from_color(rgba);
+	}
+
+	// 纹理采样：直接传入 Vec2f
+	inline Vec4f Sample2D(const Vec2f& uv) const {
+		return Sample2D(uv.x, uv.y);
+	}
+
 	// 按照 Vec4f 画点
 	inline void SetPixel(int x, int y, const Vec4f& color)
 	{
 		SetPixel(x, y, vector_to_color(color));
+	}
+
+protected:
+	// 双线性插值计算：给出四个点的颜色，以及坐标偏移，计算结果
+	inline static uint32_t BilinearInterp(uint32_t tl, uint32_t tr,
+		uint32_t bl, uint32_t br, int32_t distx, int32_t disty) {
+		uint32_t f, r;
+		int32_t distxy = distx * disty;
+		int32_t distxiy = (distx << 8) - distxy;  /* distx * (256 - disty) */
+		int32_t distixy = (disty << 8) - distxy;  /* disty * (256 - distx) */
+		int32_t distixiy = 256 * 256 - (disty << 8) - (distx << 8) + distxy;
+		r = (tl & 0x000000ff) * distixiy + (tr & 0x000000ff) * distxiy
+			+ (bl & 0x000000ff) * distixy + (br & 0x000000ff) * distxy;
+		f = (tl & 0x0000ff00) * distixiy + (tr & 0x0000ff00) * distxiy
+			+ (bl & 0x0000ff00) * distixy + (br & 0x0000ff00) * distxy;
+		r |= f & 0xff000000;
+		tl >>= 16; tr >>= 16; bl >>= 16; br >>= 16; r >>= 16;
+		f = (tl & 0x000000ff) * distixiy + (tr & 0x000000ff) * distxiy
+			+ (bl & 0x000000ff) * distixy + (br & 0x000000ff) * distxy;
+		r |= f & 0x00ff0000;
+		f = (tl & 0x0000ff00) * distixiy + (tr & 0x0000ff00) * distxiy
+			+ (bl & 0x0000ff00) * distixy + (br & 0x0000ff00) * distxy;
+		r |= f & 0xff000000;
+		return r;
 	}
 
 protected:
@@ -1006,7 +1104,6 @@ public:
 			// 为vertex的pos赋值，varying_vec4f存顶点色
 			vertex.pos = _vertex_shader(k, vertex.context);	
 		
-			// w代表什么？
 			// 这里先遵循原作者的简单裁剪（已经转为其次裁剪空间了？），后期自己实现其次空间内的裁剪
 			float w = vertex.pos.w;
 			if (w == 0.0f) return false;
