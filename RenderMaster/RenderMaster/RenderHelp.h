@@ -545,6 +545,67 @@ inline Vector<ROW, T> operator * (const Matrix<ROW, COL, T>& m, const Vector<COL
 }
 
 //---------------------------------------------------------------------
+// 数学库：行列式和逆矩阵等，光照计算有用
+//---------------------------------------------------------------------
+
+// 行列式求值：一阶
+template<typename T>
+inline T matrix_det(const Matrix<1, 1, T> &m) 
+{
+	return m[0][0];
+}
+
+// 行列式求值：二阶
+template<typename T>
+inline T matrix_det(const Matrix<2, 2, T> &m) 
+{
+	return m[0][0] * m[1][1] - m[0][1] * m[1][0];
+}
+
+// 行列式求值：多阶行列式，即第一行同他们的余子式相乘求和
+template<size_t N, typename T>
+inline T matrix_det(const Matrix<N, N, T> &m)
+{
+	T sum = 0;
+	for (size_t i = 0; i < N; i++) sum += m[0][i] * matrix_cofactor(m, 0, i);
+	return sum;
+}
+
+// 余子式：一阶
+template<typename T>
+inline T matrix_cofactor(const Matrix<1, 1, T> &m, size_t row, size_t col)
+{
+	return 0;
+}
+
+// 多阶余子式：即删除特定行列的子式的行列式值
+template<size_t N, typename T>
+inline T matrix_cofactor(const Matrix<N, N, T> &m, size_t row, size_t col) 
+{
+	return matrix_det(m.GetMinor(row, col)) * (((row + col) % 2) ? -1 : 1);
+}
+
+// 伴随矩阵：即余子式矩阵的转置
+template<size_t N, typename T>
+inline Matrix<N, N, T> matrix_adjoint(const Matrix<N, N, T> &m) 
+{
+	Matrix<N, N, T> ret;
+	for (size_t j = 0; j < N; j++) {
+		for (size_t i = 0; i < N; i++) ret[j][i] = matrix_cofactor(m, i, j);
+	}
+	return ret;
+}
+
+// 求逆矩阵：使用伴随矩阵除以行列式的值得到
+template<size_t N, typename T>
+inline Matrix<N, N, T> matrix_invert(const Matrix<N, N, T> &m)
+{
+	Matrix<N, N, T> ret = matrix_adjoint(m);
+	T det = vector_dot(m.Row(0), ret.Col(0));
+	return ret / det;
+}
+
+//---------------------------------------------------------------------
 // 工具函数
 //---------------------------------------------------------------------
 template<typename T> inline T Abs(T x) { return (x < 0) ? (-x) : x; }
@@ -986,7 +1047,7 @@ public:
 	{
 		_frame_buffer = NULL;
 		_depth_buffer = NULL;
-		_render_frame = true;
+		_render_frame = false;
 		_render_pixel = true;
 		Init(width, height);
 	}
