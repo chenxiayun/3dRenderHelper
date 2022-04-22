@@ -355,7 +355,7 @@ template<size_t ROW, size_t COL, typename T> struct Matrix
 		return m[row];
 	}
 
-	inline const T* operator [] (size_t row)
+	inline T* operator [] (size_t row)
 	{
 		assert(row < ROW);
 		return m[row];
