@@ -1,12 +1,19 @@
 #pragma once
 
-#include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
-
-#include <initializer_list>
-#include <map>
-#include <functional>
 #include <string.h>
+#include <math.h>
+#include <assert.h>
+
+#include <vector>
+#include <map>
+#include <initializer_list>
+#include <stdexcept>
+#include <functional>
+#include <ostream>
+#include <sstream>
+#include <iostream>
 
 
 //---------------------------------------------------------------------
@@ -355,7 +362,7 @@ template<size_t ROW, size_t COL, typename T> struct Matrix
 		return m[row];
 	}
 
-	inline const T* operator [] (size_t row)
+	inline T* operator [] (size_t row)
 	{
 		assert(row < ROW);
 		return m[row];
@@ -542,6 +549,67 @@ inline Vector<ROW, T> operator * (const Matrix<ROW, COL, T>& m, const Vector<COL
 	for (size_t i = 0; i < ROW; i++)
 		b[i] = vector_dot(a, m.Row(i));
 	return b;
+}
+
+//---------------------------------------------------------------------
+// 数学库：行列式和逆矩阵等，光照计算有用
+//---------------------------------------------------------------------
+
+// 行列式求值：一阶
+template<typename T>
+inline T matrix_det(const Matrix<1, 1, T> &m) 
+{
+	return m[0][0];
+}
+
+// 行列式求值：二阶
+template<typename T>
+inline T matrix_det(const Matrix<2, 2, T> &m) 
+{
+	return m[0][0] * m[1][1] - m[0][1] * m[1][0];
+}
+
+// 行列式求值：多阶行列式，即第一行同他们的余子式相乘求和
+template<size_t N, typename T>
+inline T matrix_det(const Matrix<N, N, T> &m)
+{
+	T sum = 0;
+	for (size_t i = 0; i < N; i++) sum += m[0][i] * matrix_cofactor(m, 0, i);
+	return sum;
+}
+
+// 余子式：一阶
+template<typename T>
+inline T matrix_cofactor(const Matrix<1, 1, T> &m, size_t row, size_t col)
+{
+	return 0;
+}
+
+// 多阶余子式：即删除特定行列的子式的行列式值
+template<size_t N, typename T>
+inline T matrix_cofactor(const Matrix<N, N, T> &m, size_t row, size_t col) 
+{
+	return matrix_det(m.GetMinor(row, col)) * (((row + col) % 2) ? -1 : 1);
+}
+
+// 伴随矩阵：即余子式矩阵的转置
+template<size_t N, typename T>
+inline Matrix<N, N, T> matrix_adjoint(const Matrix<N, N, T> &m) 
+{
+	Matrix<N, N, T> ret;
+	for (size_t j = 0; j < N; j++) {
+		for (size_t i = 0; i < N; i++) ret[j][i] = matrix_cofactor(m, i, j);
+	}
+	return ret;
+}
+
+// 求逆矩阵：使用伴随矩阵除以行列式的值得到
+template<size_t N, typename T>
+inline Matrix<N, N, T> matrix_invert(const Matrix<N, N, T> &m)
+{
+	Matrix<N, N, T> ret = matrix_adjoint(m);
+	T det = vector_dot(m.Row(0), ret.Col(0));
+	return ret / det;
 }
 
 //---------------------------------------------------------------------
@@ -862,6 +930,36 @@ public:
 		uint32_t	biClrImportant;
 	};
 
+	// 读取 BMP 图片，支持 24/32 位两种格式
+	inline static Bitmap* LoadFile(const char *filename) {
+		FILE *fp = fopen(filename, "rb");
+		if (fp == NULL) return NULL;
+		BITMAPINFOHEADER info;
+		uint8_t header[14];
+		int hr = (int)fread(header, 1, 14, fp);
+		if (hr != 14) { fclose(fp); return NULL; }
+		if (header[0] != 0x42 || header[1] != 0x4d) { fclose(fp); return NULL; }
+		hr = (int)fread(&info, 1, sizeof(info), fp);
+		if (hr != 40) { fclose(fp); return NULL; }
+		if (info.biBitCount != 24 && info.biBitCount != 32) { fclose(fp); return NULL; }
+		Bitmap *bmp = new Bitmap(info.biWidth, info.biHeight);
+		uint32_t offset;
+		memcpy(&offset, header + 10, sizeof(uint32_t));
+		fseek(fp, offset, SEEK_SET);
+		uint32_t pixelsize = (info.biBitCount + 7) / 8;
+		uint32_t pitch = (pixelsize * info.biWidth + 3) & (~3);
+		for (int y = 0; y < (int)info.biHeight; y++) {
+			uint8_t *line = bmp->GetLine(info.biHeight - 1 - y);
+			for (int x = 0; x < (int)info.biWidth; x++, line += 4) {
+				line[3] = 255;
+				fread(line, pixelsize, 1, fp);
+			}
+			fseek(fp, pitch - info.biWidth * pixelsize, SEEK_CUR);
+		}
+		fclose(fp);
+		return bmp;
+	}
+
 	// 保存 BMP 文件
 	inline bool SaveFile(const char *filename, bool withAlpha = false) const {
 		FILE *fp = fopen(filename, "wb");
@@ -986,7 +1084,7 @@ public:
 	{
 		_frame_buffer = NULL;
 		_depth_buffer = NULL;
-		_render_frame = true;
+		_render_frame = false;
 		_render_pixel = true;
 		Init(width, height);
 	}
@@ -1074,8 +1172,8 @@ public:
 		_render_frame = frame;
 		_render_pixel = pixel;
 	}
-
-	// 判断一条边是不是三角形的左上边
+	
+	// 判断一条边是不是三角形的左上边 是跟顺序相关的
 	inline bool IsTopLeft(const Vec2i& a, const Vec2i& b) 
 	{
 		return ((a.y == b.y) && (a.x < b.x)) || (a.y > b.y);
@@ -1195,7 +1293,7 @@ public:
 				int E20 = -(cx - p2.x) * (p0.y - p2.y) + (cy - p2.y) * (p0.x - p2.x);
 
 
-				// 如果是左上边，用 E >= 0 判断合法，如果右下边就用 E > 0 判断合法
+				// 如果是左上边，用 E >= 0 判断合法，如果右下边就用 E > 0 判断合法 得到三角形中的像素点
 				// 这里通过引入一个误差 1 ，来将 < 0 和 <= 0 用一个式子表达
 				if (E01 < (TopLeft01 ? 0 : 1)) continue;   // 在第一条边后面
 				if (E12 < (TopLeft12 ? 0 : 1)) continue;   // 在第二条边后面
@@ -1314,7 +1412,7 @@ protected:
 
 protected:
 	Bitmap *_frame_buffer;	// 像素缓存
-	float **_depth_buffer;	// 深度缓存 玛德为啥要这样定义 指向指针的地址？
+	float **_depth_buffer;	// 深度缓存
 
 	int _fb_width;			// frame buffer 宽度
 	int _fb_height;			// frame buffer 高度
