@@ -1,12 +1,19 @@
 #pragma once
 
-#include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
-
-#include <initializer_list>
-#include <map>
-#include <functional>
 #include <string.h>
+#include <math.h>
+#include <assert.h>
+
+#include <vector>
+#include <map>
+#include <initializer_list>
+#include <stdexcept>
+#include <functional>
+#include <ostream>
+#include <sstream>
+#include <iostream>
 
 
 //---------------------------------------------------------------------
@@ -923,6 +930,36 @@ public:
 		uint32_t	biClrImportant;
 	};
 
+	// 读取 BMP 图片，支持 24/32 位两种格式
+	inline static Bitmap* LoadFile(const char *filename) {
+		FILE *fp = fopen(filename, "rb");
+		if (fp == NULL) return NULL;
+		BITMAPINFOHEADER info;
+		uint8_t header[14];
+		int hr = (int)fread(header, 1, 14, fp);
+		if (hr != 14) { fclose(fp); return NULL; }
+		if (header[0] != 0x42 || header[1] != 0x4d) { fclose(fp); return NULL; }
+		hr = (int)fread(&info, 1, sizeof(info), fp);
+		if (hr != 40) { fclose(fp); return NULL; }
+		if (info.biBitCount != 24 && info.biBitCount != 32) { fclose(fp); return NULL; }
+		Bitmap *bmp = new Bitmap(info.biWidth, info.biHeight);
+		uint32_t offset;
+		memcpy(&offset, header + 10, sizeof(uint32_t));
+		fseek(fp, offset, SEEK_SET);
+		uint32_t pixelsize = (info.biBitCount + 7) / 8;
+		uint32_t pitch = (pixelsize * info.biWidth + 3) & (~3);
+		for (int y = 0; y < (int)info.biHeight; y++) {
+			uint8_t *line = bmp->GetLine(info.biHeight - 1 - y);
+			for (int x = 0; x < (int)info.biWidth; x++, line += 4) {
+				line[3] = 255;
+				fread(line, pixelsize, 1, fp);
+			}
+			fseek(fp, pitch - info.biWidth * pixelsize, SEEK_CUR);
+		}
+		fclose(fp);
+		return bmp;
+	}
+
 	// 保存 BMP 文件
 	inline bool SaveFile(const char *filename, bool withAlpha = false) const {
 		FILE *fp = fopen(filename, "wb");
@@ -1135,8 +1172,8 @@ public:
 		_render_frame = frame;
 		_render_pixel = pixel;
 	}
-
-	// 判断一条边是不是三角形的左上边
+	
+	// 判断一条边是不是三角形的左上边 是跟顺序相关的
 	inline bool IsTopLeft(const Vec2i& a, const Vec2i& b) 
 	{
 		return ((a.y == b.y) && (a.x < b.x)) || (a.y > b.y);
@@ -1256,7 +1293,7 @@ public:
 				int E20 = -(cx - p2.x) * (p0.y - p2.y) + (cy - p2.y) * (p0.x - p2.x);
 
 
-				// 如果是左上边，用 E >= 0 判断合法，如果右下边就用 E > 0 判断合法
+				// 如果是左上边，用 E >= 0 判断合法，如果右下边就用 E > 0 判断合法 得到三角形中的像素点
 				// 这里通过引入一个误差 1 ，来将 < 0 和 <= 0 用一个式子表达
 				if (E01 < (TopLeft01 ? 0 : 1)) continue;   // 在第一条边后面
 				if (E12 < (TopLeft12 ? 0 : 1)) continue;   // 在第二条边后面
@@ -1375,7 +1412,7 @@ protected:
 
 protected:
 	Bitmap *_frame_buffer;	// 像素缓存
-	float **_depth_buffer;	// 深度缓存 玛德为啥要这样定义 指向指针的地址？
+	float **_depth_buffer;	// 深度缓存
 
 	int _fb_width;			// frame buffer 宽度
 	int _fb_height;			// frame buffer 高度

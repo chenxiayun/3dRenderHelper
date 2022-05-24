@@ -13,7 +13,7 @@ inline void sample_01_triangle()
 
 	// 顶点数据，由 VS 读取，如有多个三角形，可每次更新 vs_input 再绘制
 	struct { Vec4f pos; Vec4f color; } vs_input[3] = {
-		{ {  0.0,  0.7, 0.90, 1}, {1, 0, 0, 1} },
+		{ {  0.0,  0.7, 0.01, 1}, {1, 0, 0, 1} },
 		{ { -0.6, -0.2, 0.01, 1}, {0, 1, 0, 1} },
 		{ { +0.6, -0.2, 0.01, 1}, {0, 0, 1, 1} },
 	};
@@ -333,6 +333,13 @@ public:
 
 int main()
 {
+	//sample_01_triangle();
+
+	//sample_02_texture();
+	
+	//sample_03 test;
+	//test.sample_03_box();
+
 	sample_04 test;
 	test.sample_04_gouraud();
 
