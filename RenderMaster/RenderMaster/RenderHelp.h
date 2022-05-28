@@ -1035,6 +1035,32 @@ public:
 		SetPixel(x, y, vector_to_color(color));
 	}
 
+	// 上下反转
+	inline void FlipVertical()
+	{
+		uint8_t *buffer = new uint8_t[_pitch];
+		for (int i = 0, j = _h - 1; i < j; i++, j--)
+		{
+			memcpy(buffer, GetLine(i), _pitch);
+			memcpy(GetLine(i), GetLine(j), _pitch);
+			memcpy(GetLine(j), buffer, _pitch);
+		}
+		delete[] buffer;
+	}
+
+	// 水平反转
+	inline void FlipHorizontal()
+	{
+		for (int y = 0; y < _h; y++)
+			for (int i = 0, j = _w - 1; i < j; i++, j--)
+			{
+				uint32_t c1 = GetPixel(i, y);
+				uint32_t c2 = GetPixel(j, y);
+				SetPixel(i, y, c2);
+				SetPixel(j, y, c1);
+			}
+	}
+
 protected:
 	// 双线性插值计算：给出四个点的颜色，以及坐标偏移，计算结果
 	inline static uint32_t BilinearInterp(uint32_t tl, uint32_t tr,
